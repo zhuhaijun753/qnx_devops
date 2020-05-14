@@ -1,0 +1,18 @@
+s32v I2C manager
+
+%C [options]
+
+Options:
+    -I interface        (1 | 2 | 3 , Default: 1)
+    -p addr             I2C base address
+    -i irq              I2C interrupt
+    -c clock            Input clock (default: 133000000)
+    -v                  set verbose
+
+Generic options:
+    --b bus_speed       Default bus speed. (Default: 100000)
+    --m max_msg_len     Minimum length of resmgr receive buffer. (Default: 128 bytes)
+    --n nparts          Minimum number of iov_t's in resmgr context. (Default: 2)
+    --u unit            Unit number. Number to append to device name prefix (/dev/i2c). (Default: 0)
+
+    i2c-s32v -I1 --u1

@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<module name="spi-nxpspi">
+	<type>Element</type>
+	<classification>Driver</classification>
+
+	<description>
+		<short>NXP S32V SPI Driver</short>
+			<abstract>
+				<![CDATA[The Serial Protocol Interface on the NXP S32V is protocol compatible
+				with the standard Serial Protocol Interface (SPI). The NXP S32V BSP
+				support for the SPI (spi-nxpspi) supports Full Duplex communication in
+				Master mode. The SPI provides serial communications between the NXP S32V
+				CPU core and peripheral devices.]]>
+			</abstract>
+	</description>
+
+	<supports>
+		<availability>
+			<cpu isa="arm">
+				<byteOrder>le</byteOrder>
+			</cpu>
+		</availability>
+	</supports>
+
+	<source available="false">
+		<location type="">.</location>
+	</source>
+	<GroupOwner>hw</GroupOwner>
+
+	<contents>
+		<component id="spi-nxpspi" generated="true">
+			<location basedir="{cpu}/dll{.:endian}"
+				 runtime="true">spi-nxpspi.so</location>
+		</component>
+	</contents>
+
+	<requires>
+		<part build="true" location="lib/spi"/>
+		<part build="false" location="hardware/spi"/>
+	</requires>
+</module>

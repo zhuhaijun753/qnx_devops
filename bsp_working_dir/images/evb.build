@@ -1,0 +1,470 @@
+###################################################################################
+#
+# QNX Neutrino 7.0 on the NXP S32G275 EVB
+#
+####################################################################################
+[image=0x80080000]
+
+[virtual=aarch64le,raw +compress] .bootstrap = {
+
+    [+keeplinked] startup-s32g-evb -W -P4
+    [+keeplinked] PATH=/proc/boot:/bin:/usr/bin:/opt/bin:/sbin:/usr/sbin LD_LIBRARY_PATH=/proc/boot:/lib:/usr/lib:/lib/dll/lib/dll/pci:/opt/lib procnto-smp-instr -vvvvv
+}
+[+script] .script = {
+
+    # Initialise the console
+    display_msg Welcome to QNX Neutrino 7.0 on the NXP S32G275 EVB Board!!
+
+    procmgr_symlink ../../proc/boot/libc.so /usr/lib/ldqnx-64.so.2
+
+    # Ensure that all serial debug and telnet ksh sessions have environment variables set
+    ENV=/etc/profile
+    LD_PRELOAD=/proc/boot/libstringsa64.so
+
+    # Start some common servers
+    pipe &
+    slogger2 &
+    dumper &
+
+    #######################################################################
+    ## WatchDog utility
+    ## If startup is given '-W' parameter then the 's32v-wdtkick' utility MUST
+    ## be uncommented below.
+    #######################################################################
+    display_msg Starting watchdog...
+    s32v-wdtkick
+
+    #######################################################################
+    ## Random service
+    #######################################################################
+    display_msg Starting random service ...
+    random -t
+    waitfor /dev/random 5
+
+    #######################################################################
+    ## UART drivers
+    #######################################################################
+    display_msg Starting serial driver...
+
+    # Buffer mode
+    devc-serlinflexd -e -F -S -c125000000 0x401c8000,114
+
+    waitfor /dev/ser1 4
+    reopen /dev/ser1
+
+    #######################################################################
+    ## Networking
+    #######################################################################
+    display_msg Starting Networking driver (/dev/socket)...
+    sh -c "io-pkt-v6-hc -d dwceqos-s32g mac=`genmac-random -m`"
+
+    # Ensure that TCP/IP dwc0 interface is available before the script continue
+    if_up -p dwc0
+
+    # Get IP form DHCP for fec0 device
+    dhclient -m -lf /dev/shmem/dhclient.leases -pf /dev/shmem/dhclient.pid -nw dwc0
+
+    #######################################################################
+    ## SPI driver
+    #######################################################################
+    display_msg Starting SPI 0 driver (/dev/spi0,1,2,3,4,5)...
+    spi-master -u0 -d nxpspi base=0x401D4000,irq=117
+    spi-master -u1 -d nxpspi base=0x401D8000,irq=118
+    spi-master -u2 -d nxpspi base=0x401DC000,irq=119
+    spi-master -u3 -d nxpspi base=0x402C8000,irq=120
+    spi-master -u4 -d nxpspi base=0x402CC000,irq=121
+    spi-master -u5 -d nxpspi base=0x402D0000,irq=122
+
+    #######################################################################
+    ## I2C driver
+    #######################################################################
+    display_msg Starting I2C 0/1/2/3/4 driver (/dev/i2c0,1,2,3,4)...
+    i2c-s32v -I0
+    i2c-s32v -I1 --u1
+    i2c-s32v -I2 --u2
+    i2c-s32v -I3 --u3
+    i2c-s32v -I4 --u4
+
+    #######################################################################
+    ## SD memory card driver
+    ## To use this driver, ensure J50 for SD:1-2
+    #######################################################################
+    display_msg Starting USDHC0 memory card driver...
+    devb-sdmmc-s32v cam pnp,verbose blk rw,cache=2M sdio addr=0x402F0000,irq=68,bs=nocd disk name=sd
+    waitfor /dev/sd0 3
+
+    #######################################################################
+    ## EMMC driver
+    ## To use this driver, ensure J50 for EMMC:2-3
+    #######################################################################
+    #display_msg Starting USDHC0 memory card driver...
+    #devb-sdmmc-s32v cam pnp  blk rw,cache=2M sdio addr=0x402F0000,irq=68,bs=emmc:bw=8 disk name=emmc
+    #waitfor /dev/emmc0 3
+
+    #######################################################################
+    ## CAN driver
+    #######################################################################
+    #display_msg "Starting CAN driver..."
+    #dev-can-s32g can0
+
+    #######################################################################
+    ## REMOTE_DEBUG (gdb or Momentics)
+    ##  - refer to the help documentation for the gdb, qconn and the IDE
+    ##    for more information on remote debugging
+    ##  - the commands shown require that NETWORK is enabled too
+    #######################################################################
+    devc-pty
+    waitfor /dev/ptyp0 4
+    waitfor /dev/socket 4
+    PATH=$PATH:/usr/bin qconn port=8000
+    inetd &
+
+    # Start the main shell
+
+    [+session] ksh &
+}
+
+# Redirect console messages
+[type=link] /bin/sh=/proc/boot/ksh
+
+[type=link] /dev/console=/dev/ser1
+
+[type=link] /tmp=/dev/shmem
+[type=link] /var/log=/tmp
+[type=link] /usr/tmp=/tmp
+
+# Programs require the runtime linker (ldqnx.so) to be at a fixed location
+
+# Shared libraries
+libc.so
+libm.so
+libstringsa64.so
+libsocket.so
+
+###########################################################################
+## BLOCK driver
+## substitute cam-xxx.so and fs-xxx.so with the cam drivers and filesystems
+## required
+###########################################################################
+libcam.so
+io-blk.so
+cam-disk.so
+cam-cdrom.so
+fs-qnx6.so
+fs-dos.so
+fs-udf.so
+
+###########################################################################
+## NETWORK driver
+###########################################################################
+devnp-dwceqos-s32g.so
+
+libsocket.so
+libz.so
+libssl.so
+libcrypto.so
+libnbutil.so
+
+###########################################################################
+## PPS
+###########################################################################
+libpps.so.1
+
+###########################################################################
+## Tracelog
+###########################################################################
+libtracelog.so.1
+
+###########################################################################
+## Slogger2
+###########################################################################
+libslog2.so.1
+libslog2parse.so.1
+
+###########################################################################
+## For ncurses2 support
+###########################################################################
+libpanelw.so.1
+libncursesw.so.1
+
+###########################################################################
+## SPI driver
+###########################################################################
+spi-nxpspi.so
+
+###########################################################################
+## uncomment for CAN driver
+###########################################################################
+dev-can-s32g
+canctl
+
+###########################################################################
+## edma driver
+###########################################################################
+libdma-fsl-edma3.so.1
+
+# Executables
+[data=c]
+
+###########################################################################
+## uncomment for UART driver
+###########################################################################
+devc-serlinflexd
+
+###########################################################################
+## I2C driver
+###########################################################################
+i2c-s32v
+
+###########################################################################
+## uncomment for WDT utility
+###########################################################################
+s32v-wdtkick
+
+###########################################################################
+## uncomment for GPIO utility
+###########################################################################
+gpio-siul2-s32g
+test_gpio
+
+###########################################################################
+## uncomment for SPI master
+###########################################################################
+spi-master
+
+###########################################################################
+## uncomment for Block driver
+###########################################################################
+devb-sdmmc-s32v
+
+fdisk
+mkdosfs
+
+###########################################################################
+## REMOTE_DEBUG
+###########################################################################
+devc-pty
+qconn
+/usr/bin/pdebug=pdebug
+
+###########################################################################
+## uncomment for NETWORK driver
+###########################################################################
+io-pkt-v6-hc
+nicinfo
+ping
+ftp
+fs-nfs3
+fs-cifs
+ifconfig
+dhcpd
+if_up
+/bin/login=login
+inetd
+telnet
+/usr/sbin/telnetd=telnetd
+genmac-random
+
+###########################################################################
+## dhclient support
+###########################################################################
+dhclient
+[search=${QNX_TARGET}/sbin perms=a+x] /sbin/dhclient-script=dhclient-script
+[search=${QNX_TARGET}/etc]/etc/dhclient.conf=dhclient.conf
+
+###########################################################################
+## Network services (telnet) support
+###########################################################################
+[type=link] /var/log=/tmp
+[type=link] /var/run=/tmp
+[type=link] /var/lock=/tmp
+
+/etc/esh = {
+}
+
+devc-pty
+
+/etc/hosts=${QNX_TARGET}/etc/hosts
+/etc/services=${QNX_TARGET}/etc/services
+
+/etc/inetd.conf = {
+telnet stream tcp nowait root /usr/sbin/telnetd in.telnetd
+#ftp stream tcp nowait root /usr/sbin/ftpd in.ftpd -l
+#shell stream tcp nowait root /bin/rshd in.rshd
+#login stream tcp nowait root /bin/rlogind in.rlogind
+#tftp dgram udp wait ftp /bin/tftpd in.tftpd
+}
+
+/etc/ftpusers=${QNX_TARGET}/etc/ftpusers
+
+/etc/ftpd.conf = {
+/* Make things a+rw by default */
+umask all 0000
+}
+
+[uid=0 gid=0 perms=0644] /etc/passwd = {
+root:x:0:0:Superuser:/root:/bin/sh
+sshd:x:15:6:sshd:/var/chroot/sshd:/bin/false
+qnxuser:x:1000:1000:QNX User:/home/qnxuser:/bin/sh
+}
+
+# Enabled Username/Password: root/root, qnxuser/qnxuser
+[uid=0 gid=0 perms=0600] /etc/shadow = {
+root:@S@NKlWES1quMp1wmqugkUSnFEpPGn58kIs4wQOgDDNs06vimR+bbGPUKM+9P6jbFUzo3Rm+Qe5MS+17xKhwaeJEg==@Mjg5ZTJiMTM0YTRjYTE2ZGFjMDdhZTFlY2NlMDVmNmE=:1468494669:0:0
+sshd:*:1231323780:0:0
+qnxuser:@S@HZERXjgixvb3157FFeraShhvTVw+10ccUtVUVZbi0fUwpzlzBZFw5gHiFd1XHKit8D39Whe749XAY8fV4P5ANQ==@Y2ZlOTg3M2RhNTM4Y2M2ODY0OWZhODdiNDRkMmU5Nzg=:1468488235:0:0
+}
+
+[uid=0 gid=0 perms=0644] /etc/group = {
+root:x:0:root
+sshd:x:6:
+qnxuser:x:qnxuser
+}
+
+###########################################################################
+## PAM configurations addon build file
+###########################################################################
+[uid=0 gid=0 perms=4755] /bin/login=login
+[uid=0 gid=0 perms=4755] /bin/passwd=passwd
+[uid=0 gid=0 perms=4755] /bin/su=su
+[uid=0 gid=0 perms=0755] /usr/sbin/sshd=sshd
+[uid=0 gid=0 perms=0755] /usr/sbin/ftpd=ftpd
+[uid=0 gid=0 perms=0755] /usr/sbin/inetd=inetd
+[uid=0 gid=0 perms=0755] /usr/sbin/telnetd=telnetd
+
+[uid=0 gid=0 type=dir dperms=0755] /usr
+[uid=0 gid=0 type=dir dperms=0755] /usr/lib
+[uid=0 gid=0 type=dir dperms=0755] /etc
+[uid=0 gid=0 type=dir dperms=0755] /etc/pam.d
+[uid=0 gid=0 perms=0644] /etc/pam.d/login=${QNX_TARGET}/etc/pam.d/login
+[uid=0 gid=0 perms=0644] /etc/pam.d/on=${QNX_TARGET}/etc/pam.d/on
+[uid=0 gid=0 perms=0644] /etc/pam.d/passwd=${QNX_TARGET}/etc/pam.d/passwd
+[uid=0 gid=0 perms=0644] /etc/pam.d/su=${QNX_TARGET}/etc/pam.d/su
+[uid=0 gid=0 perms=0644] /etc/pam.d/ftpd=${QNX_TARGET}/etc/pam.d/ftpd
+
+[uid=0 gid=0 perms=0755] /usr/lib/pam_ftpusers.so=pam_ftpusers.so
+[uid=0 gid=0 perms=0755] /usr/lib/pam_rootok.so=pam_rootok.so
+[uid=0 gid=0 perms=0755] /usr/lib/pam_qnx.so=pam_qnx.so
+#[uid=0 gid=0 perms=0755] /usr/lib/pam_deny.so=pam_deny.so
+#[uid=0 gid=0 perms=0755] /usr/lib/pam_echo.so=pam_echo.so
+#[uid=0 gid=0 perms=0755] /usr/lib/pam_exec.so=pam_exec.so
+#[uid=0 gid=0 perms=0755] /usr/lib/pam_group.so=pam_group.so
+#[uid=0 gid=0 perms=0755] /usr/lib/pam_mac.so=pam_mac.so
+#[uid=0 gid=0 perms=0755] /usr/lib/pam_permit.so=pam_permit.so
+#[uid=0 gid=0 perms=0755] /usr/lib/pam_radius.so=pam_radius.so
+#[uid=0 gid=0 perms=0755] /usr/lib/pam_self.so=pam_self.so
+
+##########################################################################
+## Set environment and start the main shell
+###########################################################################
+# Create a profile so telnet sessions will get environment variables
+/etc/profile={
+export HOME=/
+export SYSNAME=nto
+export TERM=qansi
+export PATH=:/bin:/usr/bin:/sbin:/usr/sbin:/proc/boot:/opt/qt5/lib:/lib:/usr/lib/
+export LD_LIBRARY_PATH=:/lib:/usr/lib:/lib/dll:/proc/boot:/opt/qt5/lib:/lib/dll/mmedia/:/usr/Inc/lib/:/lib/dll/pci
+# Workaround for a performance issue with memcpy() on aarch64 targets
+export LD_PRELOAD=/proc/boot/libstringsa64.so
+}
+
+
+
+###########################################################################
+## Set environment and start the main shell
+###########################################################################
+[perms=0744] .console.sh={
+echo setting env variables.
+
+export SYSNAME=nto
+export TERM=qansi
+export HOME=/
+
+#######################################################################
+## REMOTE_DEBUG (gdb or Momentics)
+##  - refer to the help documentation for the gdb, qconn and the IDE
+##    for more information on remote debugging
+##  - the commands shown require that NETWORK is enabled too
+#######################################################################
+devc-pty
+#waitfor /dev/ptyp0 4
+#waitfor /dev/socket 4
+PATH=$PATH:/usr/bin qconn port=8000
+
+ksh -l
+}
+
+
+###########################################################################
+## general commands
+###########################################################################
+cp
+ls
+cat
+ksh
+pipe
+pidin
+uname
+slogger2
+slog2info
+slay
+mount
+umount
+use
+date
+shutdown
+devb-umass
+chmod
+ln
+rm
+mv
+sleep
+random
+dd
+top
+mkdir
+grep
+env
+ldd
+hostname
+dumper
+in32
+out32
+io
+hogs
+fdisk
+mkdosfs
+arp
+echo
+getconf
+ifconfig
+mv
+more
+omshell
+route
+setconf
+sed
+
+###########################################################################
+## END OF BUILD SCRIPT
+###########################################################################
+
+###########################################################################
+##
+## S32G GIC InterruptID
+##
+###########################################################################
+##
+## vector: 0 - 15
+## device: (SGI) Software-generated int
+##
+## vector 16 - 31
+## device: Private peripheral int
+##
+## vector 32 - 35
+## device: CPU to CPU int[0 - 3]
+##
+## vector 36 - 39
+## device: Reserved
+##
+###########################################################################
