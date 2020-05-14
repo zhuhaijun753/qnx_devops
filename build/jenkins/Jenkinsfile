@@ -1,0 +1,58 @@
+#!groovy
+
+//region Declarative Pipeline
+
+pipeline {
+  options {
+    timestamps() // Prepend all console outputs with a timestamp
+  }
+
+// work inside the docker container agent
+  agent {
+    docker {
+      image 'test:2.0'  
+    }
+  }
+
+  stages {
+
+    stage('QNX BSP checkout') {
+      steps {
+          git branch : 'master',
+          credentialsId: 'Github', url: 'https://github.com/Yihan1993/qnx_devops.git'
+          echo 'git checkout bsp code success'
+      }
+    }
+
+    stage('Install QNX license') {
+      steps {
+        script {
+          sh 'mkdir -p $HOME/.qnx/license' 
+          withCredentials([file(
+            credentialsId: 'QNX_LICENSES_PROAI_CV',
+            variable: 'LICENSE_FILE')])
+          {
+            sh """#!/bin/bash
+            cp --verbose "${LICENSE_FILE}" "\$HOME/.qnx/license/licenses"
+            """
+          }
+        }
+      }
+    }
+
+    stage('Build QNX BSP Image') {
+      steps{
+        script {
+          sh """#!/bin/bash
+          #Ensure QNX environment variables are available
+          source /opt/qnx700/qnxsdp-env.sh
+
+          cd ${WORKSPACE}/bsp_working_dir && make clean && make all
+          """
+        }
+
+      }
+    }
+  }
+
+}
