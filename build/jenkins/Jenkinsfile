@@ -44,10 +44,10 @@ pipeline {
       steps{
         script {
           sh """#!/bin/bash
-          #Ensure QNX environment variables are available
+          # Ensure QNX environment variables are available
           source /opt/qnx700/qnxsdp-env.sh
 
-          cd ${WORKSPACE}/bsp_working_dir && make clean && make all
+          cd ${WORKSPACE}/build/bsp_working_dir && make clean && make all
           """
         }
 
