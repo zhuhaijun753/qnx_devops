@@ -22,7 +22,7 @@ pipeline {
     //       credentialsId: 'Github', url: 'https://github.com/Yihan1993/qnx_devops.git'
     //       echo 'git checkout bsp code success'
     //   }
-    }
+    // }
 
     stage('Install QNX license') {
       steps {
