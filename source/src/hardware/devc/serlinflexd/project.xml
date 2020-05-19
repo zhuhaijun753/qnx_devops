@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<module name="devc-linflexd">
+  <classification>Driver</classification>
+  <description>
+    <short>Serial driver for linflexd compatible uarts</short>
+    <abstract><![CDATA[
+                        The devc-linflexd manager is a small serial device manager for QNX Neutrino.
+                ]]></abstract>
+  </description>
+  <supports>
+    <availability>
+      <cpu isa="aarch64">
+        <byteOrder>le</byteOrder>
+        <byteOrder>le</byteOrder>
+      </cpu>
+    </availability>
+  </supports>
+  <contents>
+    <component id="linflexd" generated="true">
+      <location basedir="aarch64/le">devc-sermx1</location>
+      <location basedir="aarch64/le">devc-sermx1</location>
+    </component>
+    <component id="tlinflexd" generated="true">
+      <location basedir="aarch64/le">devc-tsermx1</location>
+      <location basedir="aarch64/le">devc-tsermx1</location>
+    </component>
+  </contents>
+  <requires>
+    <part build="true" location="lib/io-char"/>
+    <part build="false" location="hardware/devc"/>
+  </requires>
+</module>

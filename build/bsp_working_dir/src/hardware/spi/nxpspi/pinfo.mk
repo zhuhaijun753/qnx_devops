@@ -1,3 +1,0 @@
-define PINFO
-PINFO DESCRIPTION=NXP S32V SPI driver
-endef

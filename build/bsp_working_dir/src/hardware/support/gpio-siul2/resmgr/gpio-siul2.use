@@ -1,4 +1,0 @@
-gpio-siul2 - Resource manager for access to NXP S32 SIUL2 GPIO.
-
-Usage:
-gpio-siul2 &
