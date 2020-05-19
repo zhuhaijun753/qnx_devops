@@ -2,9 +2,72 @@
 
 //region Declarative Pipeline
 
+// use the share library from common-jenkins
+library "proai-cv@master"
+
 pipeline {
   options {
     timestamps() // Prepend all console outputs with a timestamp
+  }
+  
+parameters {
+    // Build parameters
+    booleanParam(
+      name: 'RELEASE_BUILD',
+      defaultValue: false,
+      description: 'Indicates if the build is a release build'
+    )
+    
+    // Artifact settings (according to Maven layout)
+    string(
+      name: 'PROJECT_NAME',
+      defaultValue: 'zf.proai-cv.safetympu',
+      description: 'Name of the overall project',
+      trim: true
+    )
+    
+    string(
+      name: 'MODULE_NAME',
+      defaultValue: 'safetympu',
+      description: 'Name of the module or component',
+      trim: true
+    )
+    // Artifact settings (according to Maven layout)
+    string(
+      name: 'BASE_VERSION',
+      defaultValue: '1.0.0',
+      description: 'Target release version (even if it is a development build)',
+      trim: true
+    )
+    
+    // Artifactory settings
+    string(
+      name: 'ARTIFACTORY_URL',
+      defaultValue: 'http://127.0.0.1:8082/artifactory/',
+      description: 'Root URL of the Artifactory installation',
+      trim: true
+    )
+    
+    string(
+      name: 'ARTIFACTORY_SECRET',
+      defaultValue: 'proai-cv.artifactory',
+      description: 'Secret (on Jenkins master) to download and publish artifacts',
+      trim: true
+    )
+    
+    string(
+      name: 'ARTIFACTORY_SNAPSHOT_REPOSITORY',
+      defaultValue: 'proai_cv-generic-dev-local-frd',
+      description: 'Name of the repository to store SNAPSHOT builds',
+      trim: true
+    )
+    
+    string(
+      name: 'ARTIFACTORY_RELEASE_REPOSITORY',
+      defaultValue: 'proai_cv-generic-dev-local-frd',
+      description: 'Name of the repository to store release builds',
+      trim: true
+    )
   }
 
 // work inside the docker container agent
@@ -15,12 +78,37 @@ pipeline {
   }
 
   stages {
+      
+      stage('Collect system information') {
+      steps {
+        // Collect all environment variables for easier debugging and archive
+        // them
+        script {
+          sh 'set | tee environment_variables.txt'
+          archiveArtifacts 'environment_variables.txt'
+        }
+      }
+    } // stage
+
+    stage('Setup infrastructure') {
+      steps {
+        script {
+          artifactoryExt.initialize(
+            serverUrl: params.ARTIFACTORY_URL,
+            credentialsId: 'proai-cv.artifactory',
+            release: params.RELEASE_BUILD
+          )
+        }
+      }
+    } // stage
 
     // stage('QNX BSP checkout') {
     //   steps {
+    //     script {
     //       git branch : 'master',
     //       credentialsId: 'Github', url: 'https://github.com/Yihan1993/qnx_devops.git'
     //       echo 'git checkout bsp code success'
+    //     }
     //   }
     // }
 
@@ -50,7 +138,24 @@ pipeline {
           cd ${WORKSPACE}/build/bsp_working_dir && make clean && make all
           """
         }
-
+      }
+    }
+    
+    stage('Publish build') {
+      steps {
+        script {
+          artifactoryExt.uploadFiles(
+            repository: params.ARTIFACTORY_RELEASE_REPOSITORY,
+            project: params.PROJECT_NAME,
+            module: params.MODULE_NAME,
+            baseRevision: params.BASE_VERSION,
+            fileSpec: [
+              [
+                'pattern': "${WORKSPACE}/build/bsp_working_dir/images/ifs-s32g-evb.ui"
+              ]
+            ]
+          )
+        }
       }
     }
   }
