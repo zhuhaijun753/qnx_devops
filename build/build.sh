@@ -5,27 +5,30 @@
 set -eu
 
 # Define the install directory and output directory for building process
-install_dir="install"
-output_dir="output"
+INSTALL_DIR="install"
+OUTPUT_DIR="output"
+
+# Get the absolute path of git branche
+WORK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../ && pwd)"
 
 # Determine whether the output folder exists, create if it doesn't exist
-if [ ! -d "$output_dir" ]; then
-        mkdir $output_dir
+if [ ! -d "$OUTPUT_DIR" ]; then
+        mkdir $OUTPUT_DIR
 fi
 
 # change work directory to source/
-cd ./source
+cd $WORK_DIR/source
 
 # Clean the prebuild files
 make clean
 
 # Determine whether the install folder exists, create if it doesn't exist
-if [ ! -d "$install_dir" ]; then
-        mkdir $install_dir
+if [ ! -d "$INSTALL_DIR" ]; then
+        mkdir $INSTALL_DIR
 fi
 
 # Build the QNX image for s32g evb
 make all
 
 # move the created QNX image into output directory
-mv ./images/ifs-s32g-evb.ui ./images/qnx-ifs ../output/
+mv $WORK_DIR/source/images/ifs-s32g-evb.ui $WORK_DIR/output/
