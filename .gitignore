@@ -1,6 +1,6 @@
 *.o
 *.pinfo
-source/images/
+source/images/*
 !source/images/evb.build
 source/install/
 output/
